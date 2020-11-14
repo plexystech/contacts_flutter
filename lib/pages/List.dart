@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_dev/utils/database_helper.dart';
+import 'package:flutter_dev/utils/http_service.dart';
+
 import '../models/contact.dart';
+
 import 'Form.dart';
 import 'Details.dart';
 
@@ -15,12 +19,11 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   List<Contact> _contacts;
-  DatabaseHelper _dbHelper;
+  final HttpService httpService = HttpService();
 
   @override
   void initState() {
     super.initState();
-    _dbHelper = DatabaseHelper.instance;
     _refreshContactList();
   }
 
@@ -31,23 +34,40 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
         centerTitle: true,
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: <Widget>[_list(_contacts)],
-        ),
+      body: FutureBuilder(
+        future: httpService.getContacts(),
+        builder: (BuildContext context, AsyncSnapshot<List<Contact>> snapshot) {
+          if (snapshot.hasData)
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: <Widget>[_list(_contacts)],
+              ),
+            );
+          return Center(child: CircularProgressIndicator());
+        },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.pushNamed(context, '/form'),
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FormView(
+              title: 'Form View',
+              // contactSingle: _contacts[index],
+              mode: 'create',
+              contact: Contact(),
+            ),
+          ),
+        ),
         child: Icon(Icons.add),
       ),
     );
   }
 
   _refreshContactList() async {
-    List<Contact> dbContacts = await _dbHelper.getContacts();
+    List<Contact> contacts = await httpService.getContacts();
     setState(() {
-      _contacts = dbContacts;
+      _contacts = contacts;
     });
   }
 
@@ -64,20 +84,19 @@ class _MyHomePageState extends State<MyHomePage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => DetailsView(
-                                  title: 'Details View',
-                                  // contactSingle: _contacts[index],
-                                )),
-                      );
+                          builder: (context) => DetailsView(
+                            title: 'Details View',
+                            contactSingle: _contacts[index],
+                          ),
+                        ),
+                      ).then(onGoBack);
                     },
                     leading: Icon(Icons.account_circle, size: 40.0),
                     title: Text(
-                      // _contacts[index].firstName,
-                      'Naruto Uzumaki'.toUpperCase(),
+                      _contacts[index].fullName.toUpperCase(),
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    // subtitle: Text(_contacts[index].email),
-                    subtitle: Text('nuzumaki@konoha.jp'),
+                    subtitle: Text(_contacts[index].email),
                   ),
                   Divider(
                     height: 5.0,
@@ -89,4 +108,9 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ),
       );
+
+  FutureOr onGoBack(dynamic value) {
+    _refreshContactList();
+    setState(() {});
+  }
 }

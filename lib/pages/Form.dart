@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+
+import '../utils/http_service.dart';
+
 import '../models/contact.dart';
-import 'package:flutter_dev/utils/database_helper.dart';
 
 class FormView extends StatefulWidget {
-  FormView({Key key, this.title}) : super(key: key);
+  FormView({Key key, this.title, this.mode, this.contact}) : super(key: key);
 
   final String title;
+  final String mode;
+  final Contact contact;
 
   @override
   _FormViewState createState() => _FormViewState();
@@ -14,13 +18,15 @@ class FormView extends StatefulWidget {
 class _FormViewState extends State<FormView> {
   final _formKey = GlobalKey<FormState>();
 
-  Contact _contact = Contact();
-  DatabaseHelper _dbHelper;
+  final HttpService httpService = HttpService();
 
+  Contact _contact;
   @override
   void initState() {
     super.initState();
-    _dbHelper = DatabaseHelper.instance;
+    setState(() {
+      _contact = widget.contact;
+    });
   }
 
   List<String> _sexes = [
@@ -72,33 +78,103 @@ class _FormViewState extends State<FormView> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: <Widget>[
                   _expandedWidgetPair(
-                    _textFormField('First Name', _contact.firstName),
-                    _textFormField('Last Name', _contact.lastName),
+                    _textFormField(
+                      'First Name',
+                      _contact.firstName,
+                      (String value) {
+                        _contact.firstName = value;
+                      },
+                    ),
+                    _textFormField(
+                      'Last Name',
+                      _contact.lastName,
+                      (String value) {
+                        _contact.lastName = value;
+                      },
+                    ),
                   ),
-                  _expandedWidgetPair(
-                    _dropdownFormField(_sexes, _contact.sex, 'Sex'),
-                    _datePickerFormField(DateTime.parse(_contact.birthDay)),
-                  ),
-                  _expandedWidgetPair(
-                    _textFormField('Phone', _contact.phone),
-                    _textFormField('Email', _contact.email),
-                  ),
-                  _textFormField('Facebook URL', _contact.facebook),
                   _expandedWidgetPair(
                     _dropdownFormField(
-                        _provinces, _contact.province, 'Province'),
-                    _dropdownFormField(_zips, _contact.zip, 'ZIP Code'),
+                      _sexes,
+                      _contact.sex,
+                      'Sex',
+                      (String value) {
+                        _contact.sex = value;
+                      },
+                    ),
+                    _datePickerFormField(_contact.birthday),
                   ),
                   _expandedWidgetPair(
-                    _dropdownFormField(_cities, _contact.city, 'City'),
-                    _dropdownFormField(_streets, _contact.street, 'Street'),
+                    _textFormField(
+                      'Phone',
+                      _contact.phone,
+                      (String value) {
+                        _contact.phone = value;
+                      },
+                    ),
+                    _textFormField(
+                      'Email',
+                      _contact.email,
+                      (String value) {
+                        _contact.email = value;
+                      },
+                    ),
+                  ),
+                  _textFormField(
+                    'Facebook URL',
+                    _contact.facebook,
+                    (String value) {
+                      _contact.facebook = value;
+                    },
+                  ),
+                  _expandedWidgetPair(
+                    _dropdownFormField(
+                      _provinces,
+                      _contact.province,
+                      'Province',
+                      (String value) {
+                        _contact.province = value;
+                      },
+                    ),
+                    _dropdownFormField(
+                      _zips,
+                      _contact.zip,
+                      'ZIP Code',
+                      (String value) {
+                        _contact.zip = value;
+                      },
+                    ),
+                  ),
+                  _expandedWidgetPair(
+                    _dropdownFormField(
+                      _cities,
+                      _contact.city,
+                      'City',
+                      (String value) {
+                        _contact.city = value;
+                      },
+                    ),
+                    _dropdownFormField(
+                      _streets,
+                      _contact.street,
+                      'Street',
+                      (String value) {
+                        _contact.street = value;
+                      },
+                    ),
                   ),
                   TextFormField(
                     maxLines: 4,
+                    initialValue: _contact.notes,
                     decoration: InputDecoration(
                       labelText: 'Notes',
                       alignLabelWithHint: true,
                     ),
+                    onChanged: (value) {
+                      setState(() {
+                        _contact.notes = value;
+                      });
+                    },
                   ),
                   Container(
                     margin: EdgeInsets.all(10),
@@ -116,13 +192,24 @@ class _FormViewState extends State<FormView> {
     );
   }
 
-  _onSubmit() async {
-    _contact.fullName = '${_contact.firstName} ${_contact.lastName}';
+  _onSubmit() {
+    setState(() {
+      _contact.fullName = '${_contact.firstName} ${_contact.lastName}';
+    });
     var _form = _formKey.currentState;
-    _form.save();
-    await _dbHelper.insertContact(_contact);
-    _form.reset();
-    Navigator.pop(context);
+    if (_form.validate()) {
+      if (_contact.birthday != null) {
+        _form.save();
+        _onUpsert(widget.mode, _contact);
+        _form.reset();
+
+        Navigator.pop(context);
+      } else {
+        showAlertDialog(context);
+      }
+    } else {
+      showAlertDialog(context);
+    }
   }
 
   _expandedWidgetPair(widget1, widget2) {
@@ -142,29 +229,47 @@ class _FormViewState extends State<FormView> {
     );
   }
 
-  _textFormField(String label, String variable) {
+  _textFormField(String label, String variable, Function saveToState) {
     return TextFormField(
+      validator: (value) {
+        if (value.isEmpty) {
+          return 'This field is required!';
+        }
+        return null;
+      },
+      initialValue: variable,
       decoration: InputDecoration(labelText: label),
-      onChanged: (value) {
+      onChanged: (String value) {
         setState(() {
-          variable = value;
+          saveToState(value);
         });
       },
     );
   }
 
-  _dropdownFormField(List<String> dataSet, String groupValue, String label) {
+  _dropdownFormField(
+    List<String> dataSet,
+    String groupValue,
+    String label,
+    Function saveToState,
+  ) {
     return DropdownButtonFormField(
       hint: Text(label),
       value: groupValue,
+      validator: (value) {
+        if (value == null) {
+          return 'This field is required!';
+        }
+        return null;
+      },
       onChanged: (String newValue) {
         setState(() {
-          groupValue = newValue;
+          saveToState(newValue);
         });
       },
       items: dataSet.map<DropdownMenuItem<String>>((String value) {
         return DropdownMenuItem<String>(
-          value: value,
+          value: _setDropdownValue(value, label),
           child: Text(value),
         );
       }).toList(),
@@ -201,8 +306,39 @@ class _FormViewState extends State<FormView> {
 
     if (date != null) {
       setState(() {
-        _contact.birthDay = date.toString();
+        _contact.birthday = date;
       });
+    }
+  }
+
+  _setDropdownValue(String input, String label) {
+    if (label == 'Sex') {
+      if (input == 'Male') return 'male';
+      if (input == 'Female') return 'female';
+      return 'nonBinary';
+    }
+    return input;
+  }
+
+  showAlertDialog(BuildContext context) {
+    var alertDialog = AlertDialog(
+      title: Text('All entries must be filled.'),
+      content: Text('You left some unfilled entries.'),
+    );
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return alertDialog;
+      },
+    );
+  }
+
+  _onUpsert(String mode, Contact contact) async {
+    if (mode == 'update') {
+      httpService.updateContact(contact);
+    } else {
+      httpService.insertContact(contact);
     }
   }
 }

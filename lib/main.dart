@@ -19,7 +19,6 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => MyHomePage(title: 'List View'),
-        '/form': (context) => FormView(title: 'Form View'),
       },
     );
   }

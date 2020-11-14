@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dev/pages/Form.dart';
+import 'package:flutter_dev/utils/http_service.dart';
 import '../models/contact.dart';
+import 'package:intl/intl.dart';
 
 class DetailsView extends StatelessWidget {
   DetailsView({
     Key key,
     this.title,
-    /*this.contactSingle*/
+    this.contactSingle,
   }) : super(key: key);
 
   final String title;
-  // final Contact contactSingle;
+  final Contact contactSingle;
+  final HttpService httpService = HttpService();
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +21,28 @@ class DetailsView extends StatelessWidget {
       appBar: AppBar(
         title: Text(title),
         centerTitle: true,
+        actions: <Widget>[
+          IconButton(
+              icon: Icon(Icons.edit),
+              onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FormView(
+                        title: 'Form View',
+                        // contactSingle: _contacts[index],
+                        mode: 'update',
+                        contact: contactSingle,
+                      ),
+                    ),
+                  )),
+          IconButton(
+            icon: Icon(Icons.delete),
+            onPressed: () {
+              httpService.deleteContact(contactSingle.id);
+              Navigator.pop(context);
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.symmetric(
@@ -36,7 +62,7 @@ class DetailsView extends StatelessWidget {
                       size: 80,
                     ),
                     Text(
-                      'Naruto Uzumaki',
+                      contactSingle.fullName,
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -52,44 +78,58 @@ class DetailsView extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
-                Expanded(flex: 1, child: _description('First Name', 'Naruto')),
-                Expanded(flex: 1, child: _description('Last Name', 'Uzumaki'))
+                Expanded(
+                    flex: 1,
+                    child: _description('First Name', contactSingle.firstName)),
+                Expanded(
+                    flex: 1,
+                    child: _description('Last Name', contactSingle.lastName))
               ],
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
                 Expanded(
-                    flex: 1,
-                    child: _description('Birthday', 'October 11, 2011')),
-                Expanded(flex: 1, child: _description('Sex', 'Male')),
-              ],
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                Expanded(
-                    flex: 1, child: _description('Phone', '+639090090099')),
-                Expanded(
-                    flex: 1,
-                    child: _description('Email', 'nuzumaki@konoha.jp')),
-              ],
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                Expanded(
-                    flex: 1,
-                    child: _description('Facebook URL', '/uzumaki.naruto')),
+                  flex: 1,
+                  child: _description('Birthday',
+                      DateFormat('d MMMM yyyy').format(contactSingle.birthday)),
+                ),
                 Expanded(
                     flex: 1,
                     child: _description(
-                        'Address', 'Konohagakure\nLos Baños\nLaguna 4030')),
+                        'Sex', _setSex(contactSingle.sex.toString()))),
+              ],
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                Expanded(
+                    flex: 1,
+                    child:
+                        _description('Phone', contactSingle.phone.toString())),
+                Expanded(
+                    flex: 1, child: _description('Email', contactSingle.email)),
+              ],
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                Expanded(
+                    flex: 1,
+                    child:
+                        _description('Facebook URL', contactSingle.facebook)),
+                Expanded(
+                  flex: 1,
+                  child: _description(
+                    'Address',
+                    '${contactSingle.street}\n${contactSingle.city}\n${contactSingle.province} ${contactSingle.zip}',
+                  ),
+                ),
               ],
             ),
             _description(
               'Notes',
-              'A young ninja who seeks recognition from his peers and dreams of becoming the Hokage, the leader of his village.',
+              contactSingle.notes,
             ),
           ],
         ),
@@ -120,5 +160,11 @@ class DetailsView extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  _setSex(String input) {
+    if (input == 'male') return 'Male';
+    if (input == 'female') return 'Female';
+    return 'Non-binary';
   }
 }
